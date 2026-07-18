@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   Testing 101 - "QA Lab" design tokens
+   Light, off-white dominant surface (#F8FAFC), charcoal ink, blue primary,
+   emerald reserved for success. Type: Space Grotesk (display) · Inter (body)
+   · JetBrains Mono (lab labels / data). Tailwind v4 auto-generates utilities
+   from these tokens, e.g. bg-canvas, bg-surface, text-brand-charcoal,
+   border-line, font-display, font-mono.
+   ========================================================================== */
+@theme {
+  /* Surfaces - off-white dominant */
+  --color-canvas: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1f5f9;
+  --color-line: #e2e8f0;
+
+  /* Brand blue (primary) */
+  --color-brand-blue: #2563eb;
+  --color-brand-blue-dark: #1d4ed8;
+  --color-brand-blue-soft: #dbeafe;
+
+  /* Charcoal ink + the one dark anchor (top command bar) */
+  --color-brand-charcoal: #1e293b;
+  --color-brand-charcoal-light: #334155;
+  --color-brand-slate: #64748b;
+  --color-brand-nav: #1e293b;
+
+  /* Green - success / resolved only */
+  --color-brand-green: #059669;
+  --color-brand-green-dark: #047857;
+  --color-brand-green-soft: #d1fae5;
+
+  /* Type roles */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space), var(--font-inter), ui-sans-serif, sans-serif;
+  --font-mono: var(--font-jbmono), ui-monospace, "SFMono-Regular", monospace;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  /* Layered surfaces: a subtle gradient page sits a touch darker than the
+     white cards/panels, with the charcoal command bar as the top layer. */
+  background: linear-gradient(180deg, #f8fafc 0%, #eaeef4 100%);
+  background-attachment: fixed;
+  color: var(--color-brand-charcoal);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Display face carries the personality on headings; body stays Inter. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Mono "lab label" eyebrow helper */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-brand-slate);
+}
+
+/* Screenshot lightbox backdrop */
+.lightbox-backdrop {
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(2px);
+}
+
+/* Respect reduced-motion everywhere (safety net alongside Framer Motion). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
