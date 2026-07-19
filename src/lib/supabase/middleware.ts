@@ -1,8 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-/** Public route prefixes that do not require an authenticated user. */
-const PUBLIC_PREFIXES = ["/login", "/signup", "/auth"];
+/**
+ * Public route prefixes that do not require an authenticated user (cookie).
+ * `/api/expand-bug` is the Bug Capture extension's Claude proxy — it's called
+ * cross-origin with a Supabase *bearer token* (not a cookie) and does its own
+ * auth inside the handler, so it must skip the cookie-based login redirect.
+ */
+const PUBLIC_PREFIXES = ["/login", "/signup", "/auth", "/api/expand-bug"];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PREFIXES.some(
