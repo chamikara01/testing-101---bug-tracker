@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MembersList } from "@/components/projects/members-list";
 import { InviteMemberForm } from "@/components/projects/invite-member-form";
+import { DeleteProject } from "@/components/projects/delete-project";
 import type { MemberRole, ProjectInvite } from "@/lib/types";
 
 export interface MemberEntry {
@@ -26,6 +27,16 @@ export default async function MembersPage({
   const { data: isOwner } = await supabase.rpc("is_project_owner", {
     pid: projectId,
   });
+
+  // Only the project's creator (owner_id) may delete it - this mirrors the
+  // projects_delete RLS policy exactly, so the danger zone never appears for
+  // someone whose delete would be rejected.
+  const { data: project } = await supabase
+    .from("projects")
+    .select("name, owner_id")
+    .eq("id", projectId)
+    .maybeSingle();
+  const isCreator = !!user && project?.owner_id === user.id;
 
   const { data: memberRows } = await supabase
     .from("project_members")
@@ -80,6 +91,10 @@ export default async function MembersPage({
             <InviteMemberForm projectId={projectId} />
           </CardContent>
         </Card>
+      ) : null}
+
+      {isCreator && project ? (
+        <DeleteProject projectId={projectId} projectName={project.name} />
       ) : null}
     </div>
   );

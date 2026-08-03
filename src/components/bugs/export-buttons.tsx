@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Check, FileDown, FileText, Loader2 } from "lucide-react";
+import { AlertTriangle, Check, FileDown, FileText, Loader2 } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type Fmt = "docx" | "pdf";
-type Status = "idle" | "loading" | "done";
+type Status = "idle" | "loading" | "done" | "error";
 
 interface ExportButtonsProps {
   docxHref: string;
@@ -53,7 +53,11 @@ export function ExportButtons({
         1600,
       );
     } catch {
-      setStatus((s) => ({ ...s, [fmt]: "idle" }));
+      setStatus((s) => ({ ...s, [fmt]: "error" }));
+      window.setTimeout(
+        () => setStatus((s) => ({ ...s, [fmt]: "idle" })),
+        2600,
+      );
     }
   }
 
@@ -73,6 +77,7 @@ export function ExportButtons({
         className={cn(
           buttonVariants({ variant: "outline", size: "sm" }),
           st === "done" && "border-brand-green/40 text-brand-green",
+          st === "error" && "border-red-300 text-red-600",
         )}
       >
         {st === "loading" ? (
@@ -85,10 +90,12 @@ export function ExportButtons({
           >
             <Check className="h-4 w-4" />
           </motion.span>
+        ) : st === "error" ? (
+          <AlertTriangle className="h-4 w-4" />
         ) : (
           <Icon className="h-4 w-4" />
         )}
-        {st === "done" ? "Ready" : label}
+        {st === "done" ? "Ready" : st === "error" ? "Failed" : label}
       </button>
     );
   }

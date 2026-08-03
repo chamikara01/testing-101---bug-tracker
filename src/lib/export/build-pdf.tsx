@@ -26,6 +26,72 @@ const SLATE = "#64748b";
 const BLUE = "#2563eb";
 const LIGHTBG = "#f8fafc";
 const MAX_IMAGE_WIDTH = 330;
+// Also bound height so a tall (portrait) screenshot can never exceed the usable
+// page height. A wrap={false} block taller than a page makes react-pdf's
+// pagination produce an invalid coordinate ("unsupported number") and throw.
+const MAX_IMAGE_HEIGHT = 360;
+
+// -----------------------------------------------------------------------------
+// Text sanitisation. The built-in Helvetica font can only encode WinAnsi
+// (CP1252). A glyph outside it (arrows, checkmarks, emoji, non-Latin scripts,
+// "smart" punctuation) makes the layout engine fail to measure the text and
+// throw `unsupported number: <huge>` at render time. Map the common ones to
+// ASCII and replace anything else still outside Latin-1 so the render never
+// crashes on user-entered content.
+// -----------------------------------------------------------------------------
+const CHAR_MAP: Record<string, string> = {
+  "→": "->", "⇒": "=>", "←": "<-", "↔": "<->",
+  "✓": "[x]", "✔": "[x]", "✗": "[x]", "✘": "[x]",
+  "•": "-", "●": "-", "▪": "-", "⁃": "-", "·": "-",
+  "…": "...", "–": "-", "—": "-", "−": "-",
+  "‘": "'", "’": "'", "‚": "'", "“": '"', "”": '"',
+  "„": '"', " ": " ", "€": "EUR", "™": "(TM)",
+  "®": "(R)", "©": "(C)",
+};
+
+function sanitizePdfText(text: string): string {
+  let out = "";
+  for (const ch of text) {
+    if (ch in CHAR_MAP) {
+      out += CHAR_MAP[ch];
+      continue;
+    }
+    const cp = ch.codePointAt(0) ?? 0;
+    out += cp <= 0xff ? ch : "?";
+  }
+  return out;
+}
+
+function sanitizeReportData(data: ReportData): ReportData {
+  const s = sanitizePdfText;
+  const opt = (t: string | null) => (t ? s(t) : t);
+  return {
+    ...data,
+    title: s(data.title),
+    date: s(data.date),
+    summary: s(data.summary),
+    bugs: data.bugs.map((rb) => ({
+      ...rb,
+      reporterEmail: opt(rb.reporterEmail),
+      bug: {
+        ...rb.bug,
+        title: s(rb.bug.title),
+        description: opt(rb.bug.description),
+        expected_result: opt(rb.bug.expected_result),
+        actual_result: opt(rb.bug.actual_result),
+        notes: opt(rb.bug.notes),
+        url: opt(rb.bug.url),
+        browser: opt(rb.bug.browser),
+        os: opt(rb.bug.os),
+        steps_to_reproduce: rb.bug.steps_to_reproduce.map(s),
+      },
+      screenshots: rb.screenshots.map((sh) => ({
+        ...sh,
+        caption: opt(sh.caption),
+      })),
+    })),
+  };
+}
 
 const styles = StyleSheet.create({
   page: {
@@ -49,15 +115,6 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   runningHeaderText: { fontSize: 8, color: SLATE },
-  footer: {
-    position: "absolute",
-    bottom: 28,
-    left: 48,
-    right: 48,
-    textAlign: "center",
-    fontSize: 8,
-    color: SLATE,
-  },
   title: { fontSize: 20, fontFamily: "Helvetica-Bold", marginBottom: 10 },
   metaLine: { flexDirection: "row", marginBottom: 2 },
   metaLabel: { fontFamily: "Helvetica-Bold" },
@@ -81,6 +138,7 @@ const styles = StyleSheet.create({
   },
   bugHeader: { backgroundColor: CHARCOAL, paddingVertical: 6, paddingHorizontal: 10 },
   bugHeaderText: { color: "#ffffff", fontFamily: "Helvetica-Bold", fontSize: 11 },
+  bugHeaderMeta: { color: "#cbd5e1", fontSize: 8.5, marginTop: 2 },
   row: { flexDirection: "row", borderBottomWidth: 1, borderColor: LINE },
   labelCell: {
     width: "28%",
@@ -103,14 +161,29 @@ const styles = StyleSheet.create({
 });
 
 function fit(width: number, height: number) {
-  if (width <= MAX_IMAGE_WIDTH) return { width, height };
-  const ratio = MAX_IMAGE_WIDTH / width;
-  return { width: MAX_IMAGE_WIDTH, height: Math.round(height * ratio) };
+  const ratio = Math.min(
+    MAX_IMAGE_WIDTH / width,
+    MAX_IMAGE_HEIGHT / height,
+    1,
+  );
+  return { width: Math.round(width * ratio), height: Math.round(height * ratio) };
 }
 
-function Row({ label, children, severity }: { label: string; children: React.ReactNode; severity?: boolean }) {
+function Row({
+  label,
+  children,
+  severity,
+  breakable,
+}: {
+  label: string;
+  children: React.ReactNode;
+  severity?: boolean;
+  /** Allow this row to split across pages. Needed for the screenshots row,
+   *  which can be taller than a single page. */
+  breakable?: boolean;
+}) {
   return (
-    <View style={styles.row} wrap={false}>
+    <View style={styles.row} wrap={breakable ?? false}>
       <View style={styles.labelCell}>
         <Text style={styles.labelText}>{label}</Text>
       </View>
@@ -120,9 +193,6 @@ function Row({ label, children, severity }: { label: string; children: React.Rea
 }
 
 function ScreenshotView({ shot }: { shot: ExportScreenshot }) {
-  if (shot.ext !== "png" && shot.ext !== "jpg") {
-    return <Text style={styles.caption}>{shot.caption ? `${shot.caption} ` : ""}(image .{shot.ext} not supported in PDF)</Text>;
-  }
   const { width, height } = fit(shot.width, shot.height);
   return (
     <View wrap={false}>
@@ -144,6 +214,9 @@ function BugBlock({ rb, index }: { rb: ReportBug; index: number }) {
         <Text style={styles.bugHeaderText}>
           BUG-{String(index + 1).padStart(2, "0")} - {bug.title}
         </Text>
+        {rb.reporterEmail ? (
+          <Text style={styles.bugHeaderMeta}>Reported by {rb.reporterEmail}</Text>
+        ) : null}
       </View>
 
       <Row label="Severity" severity>
@@ -152,11 +225,11 @@ function BugBlock({ rb, index }: { rb: ReportBug; index: number }) {
         </View>
       </Row>
 
-      <Row label="Description">
+      <Row label="Description" breakable>
         <Text style={bug.description ? {} : styles.muted}>{bug.description ?? "N/A"}</Text>
       </Row>
 
-      <Row label="Steps to Reproduce">
+      <Row label="Steps to Reproduce" breakable>
         {bug.steps_to_reproduce.length > 0 ? (
           bug.steps_to_reproduce.map((step, i) => (
             <View style={styles.stepRow} key={i}>
@@ -169,11 +242,11 @@ function BugBlock({ rb, index }: { rb: ReportBug; index: number }) {
         )}
       </Row>
 
-      <Row label="Expected Result">
+      <Row label="Expected Result" breakable>
         <Text style={bug.expected_result ? {} : styles.muted}>{bug.expected_result ?? "N/A"}</Text>
       </Row>
 
-      <Row label="Actual Result">
+      <Row label="Actual Result" breakable>
         <Text style={bug.actual_result ? {} : styles.muted}>{bug.actual_result ?? "N/A"}</Text>
       </Row>
 
@@ -181,7 +254,7 @@ function BugBlock({ rb, index }: { rb: ReportBug; index: number }) {
         <Text style={env ? {} : styles.muted}>{env || "N/A"}</Text>
       </Row>
 
-      <Row label="URL">
+      <Row label="URL" breakable>
         {bug.url ? (
           <Link src={bug.url} style={styles.link}>
             {bug.url}
@@ -191,7 +264,7 @@ function BugBlock({ rb, index }: { rb: ReportBug; index: number }) {
         )}
       </Row>
 
-      <Row label="Screenshots">
+      <Row label="Screenshots" breakable>
         {rb.screenshots.length > 0 ? (
           <View>
             {rb.screenshots.map((shot, i) => (
@@ -203,7 +276,7 @@ function BugBlock({ rb, index }: { rb: ReportBug; index: number }) {
         )}
       </Row>
 
-      <Row label="Notes">
+      <Row label="Notes" breakable>
         <Text style={bug.notes ? {} : styles.muted}>{bug.notes ?? "N/A"}</Text>
       </Row>
     </View>
@@ -214,24 +287,19 @@ function ReportPdf({ data }: { data: ReportData }) {
   return (
     <Document title={data.title}>
       <Page size="A4" style={styles.page}>
+        {/* Running header repeats on every page. NB: do NOT add a `fixed`
+            element with a render callback (e.g. page numbers) - combined with
+            images across many pages it makes react-pdf accumulate an invalid
+            coordinate and throw "unsupported number". */}
         <View style={styles.runningHeader} fixed>
           <Text style={styles.runningHeaderText}>{data.title}</Text>
-          <Text style={styles.runningHeaderText}>Version {data.version}</Text>
+          <Text style={styles.runningHeaderText}>{data.date}</Text>
         </View>
-        <Text style={styles.footer} fixed render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
 
         <Text style={styles.title}>{data.title}</Text>
         <View style={styles.metaLine}>
-          <Text style={styles.metaLabel}>Version: </Text>
-          <Text>{data.version}</Text>
-        </View>
-        <View style={styles.metaLine}>
           <Text style={styles.metaLabel}>Date: </Text>
           <Text>{data.date}</Text>
-        </View>
-        <View style={styles.metaLine}>
-          <Text style={styles.metaLabel}>Prepared by: </Text>
-          <Text>{data.preparedBy ?? "-"}</Text>
         </View>
 
         <Text style={styles.sectionHeading}>Summary</Text>
@@ -249,5 +317,5 @@ function ReportPdf({ data }: { data: ReportData }) {
 }
 
 export async function buildReportPdf(data: ReportData): Promise<Buffer> {
-  return renderToBuffer(<ReportPdf data={data} />);
+  return renderToBuffer(<ReportPdf data={sanitizeReportData(data)} />);
 }

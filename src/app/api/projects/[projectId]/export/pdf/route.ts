@@ -5,6 +5,7 @@ import { SEVERITIES, type Severity } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 function parseSeverity(value: string | null): Severity | undefined {
   return value && (SEVERITIES as string[]).includes(value)
@@ -19,9 +20,14 @@ export async function GET(
   const { projectId } = await params;
   const severity = parseSeverity(new URL(req.url).searchParams.get("severity"));
 
-  const data = await buildProjectReport(projectId, { severity });
-  if (!data) return new Response("Not found", { status: 404 });
+  try {
+    const data = await buildProjectReport(projectId, { severity });
+    if (!data) return new Response("Not found", { status: 404 });
 
-  const buffer = await buildReportPdf(data);
-  return fileResponse(buffer, PDF_MIME, `${slugify(data.title)}.pdf`);
+    const buffer = await buildReportPdf(data);
+    return fileResponse(buffer, PDF_MIME, `${slugify(data.title)}.pdf`);
+  } catch (err) {
+    console.error("Project PDF export failed", err);
+    return new Response("Export failed", { status: 500 });
+  }
 }

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { ScreenshotGallery } from "@/components/bugs/screenshot-gallery";
 import { ExportButtons } from "@/components/bugs/export-buttons";
 import { SeverityBadge } from "@/components/bugs/severity-badge";
+import { DeleteBugButton } from "@/components/bugs/delete-bug-button";
 
 function Field({
   label,
@@ -46,7 +47,9 @@ export default async function BugDetailPage({
     .select("*")
     .eq("bug_id", bugId)
     .order("created_at", { ascending: true });
-  const signed = await signScreenshots(supabase, screenshotRows ?? []);
+  const screenshotRowList = screenshotRows ?? [];
+  const signed = await signScreenshots(supabase, screenshotRowList);
+  const screenshotPaths = screenshotRowList.map((s) => s.storage_path);
 
   const { data: reporter } = await supabase
     .from("profiles")
@@ -88,6 +91,11 @@ export default async function BugDetailPage({
             docxHref={`/api/bugs/${bug.id}/export/docx`}
             pdfHref={`/api/bugs/${bug.id}/export/pdf`}
             context="bug report"
+          />
+          <DeleteBugButton
+            projectId={projectId}
+            bugId={bug.id}
+            screenshotPaths={screenshotPaths}
           />
         </div>
       </div>

@@ -33,6 +33,7 @@ const LABEL_W = 2500;
 const VALUE_W = 6500;
 const FULL_W = LABEL_W + VALUE_W;
 const MAX_IMAGE_WIDTH = 400;
+const MAX_IMAGE_HEIGHT = 520;
 
 const CELL_BORDER = { style: BorderStyle.SINGLE, size: 4, color: LINE };
 const TABLE_BORDERS = {
@@ -79,7 +80,18 @@ function dataRow(label: string, children: Paragraph[]): TableRow {
   return new TableRow({ children: [labelCell(label), valueCell(children)] });
 }
 
-function headerRow(text: string): TableRow {
+function headerRow(text: string, reporter: string | null): TableRow {
+  const paragraphs = [
+    new Paragraph({ children: [run(text, { bold: true, color: "ffffff", size: 24 })] }),
+  ];
+  if (reporter) {
+    paragraphs.push(
+      new Paragraph({
+        spacing: { before: 20 },
+        children: [run(`Reported by ${reporter}`, { color: "cbd5e1", size: 18 })],
+      }),
+    );
+  }
   return new TableRow({
     children: [
       new TableCell({
@@ -87,7 +99,7 @@ function headerRow(text: string): TableRow {
         width: { size: FULL_W, type: WidthType.DXA },
         shading: { type: ShadingType.CLEAR, color: "auto", fill: CHARCOAL },
         margins: CELL_MARGINS,
-        children: [new Paragraph({ children: [run(text, { bold: true, color: "ffffff", size: 24 })] })],
+        children: paragraphs,
       }),
     ],
   });
@@ -128,7 +140,11 @@ function stepParas(steps: string[]): Paragraph[] {
 function screenshotParas(shots: ReportBug["screenshots"]): Paragraph[] {
   const out: Paragraph[] = [];
   for (const shot of shots) {
-    const scale = shot.width > MAX_IMAGE_WIDTH ? MAX_IMAGE_WIDTH / shot.width : 1;
+    const scale = Math.min(
+      MAX_IMAGE_WIDTH / shot.width,
+      MAX_IMAGE_HEIGHT / shot.height,
+      1,
+    );
     out.push(
       new Paragraph({
         spacing: { before: 60, after: shot.caption ? 20 : 80 },
@@ -180,7 +196,7 @@ function bugTable(rb: ReportBug, index: number): Table {
     .filter(Boolean)
     .join("  ·  ");
   const rows: TableRow[] = [
-    headerRow(`BUG-${String(index + 1).padStart(2, "0")} - ${bug.title}`),
+    headerRow(`BUG-${String(index + 1).padStart(2, "0")} - ${bug.title}`, rb.reporterEmail),
     severityRow(bug.severity),
     dataRow("Description", [textPara(bug.description ?? "N/A", !bug.description)]),
     dataRow("Steps to Reproduce", stepParas(bug.steps_to_reproduce)),
@@ -224,9 +240,7 @@ export async function buildReportDocx(data: ReportData): Promise<Buffer> {
   const children: (Paragraph | Table)[] = [];
 
   children.push(new Paragraph({ spacing: { after: 120 }, children: [run(data.title, { bold: true, size: 36 })] }));
-  children.push(metaLine("Version", data.version));
   children.push(metaLine("Date", data.date));
-  children.push(metaLine("Prepared by", data.preparedBy ?? "-"));
 
   children.push(sectionHeading("Summary"));
   children.push(new Paragraph({ spacing: { after: 80 }, children: [run(data.summary)] }));
@@ -246,7 +260,7 @@ export async function buildReportDocx(data: ReportData): Promise<Buffer> {
       new Paragraph({
         tabStops: [{ type: TabStopType.RIGHT, position: FULL_W }],
         border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: LINE, space: 2 } },
-        children: [run(data.title, { color: SLATE, size: 16 }), run("\t", { size: 16 }), run(`Version ${data.version}`, { color: SLATE, size: 16 })],
+        children: [run(data.title, { color: SLATE, size: 16 }), run("\t", { size: 16 }), run(data.date, { color: SLATE, size: 16 })],
       }),
     ],
   });
