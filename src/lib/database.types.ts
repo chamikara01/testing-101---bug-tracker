@@ -71,6 +71,7 @@ export interface Database {
           created_at: string;
           updated_at: string;
           deleted_at: string | null;
+          updated_by: string | null;
         };
         Insert: {
           id?: string;
@@ -89,6 +90,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
+          updated_by?: string | null;
         };
         Update: {
           id?: string;
@@ -107,6 +109,34 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      bug_activity: {
+        Row: {
+          id: string;
+          bug_id: string;
+          actor_id: string | null;
+          action: "created" | "updated" | "deleted" | "restored";
+          changed_fields: string[] | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          bug_id: string;
+          actor_id?: string | null;
+          action: "created" | "updated" | "deleted" | "restored";
+          changed_fields?: string[] | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          bug_id?: string;
+          actor_id?: string | null;
+          action?: "created" | "updated" | "deleted" | "restored";
+          changed_fields?: string[] | null;
+          created_at?: string;
         };
         Relationships: [];
       };

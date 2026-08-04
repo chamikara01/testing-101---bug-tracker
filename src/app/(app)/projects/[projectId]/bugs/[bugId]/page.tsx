@@ -11,6 +11,10 @@ import { ScreenshotGallery } from "@/components/bugs/screenshot-gallery";
 import { ExportButtons } from "@/components/bugs/export-buttons";
 import { SeverityBadge } from "@/components/bugs/severity-badge";
 import { DeleteBugButton } from "@/components/bugs/delete-bug-button";
+import {
+  BugActivityLog,
+  type ActivityEntry,
+} from "@/components/bugs/bug-activity-log";
 
 function Field({
   label,
@@ -49,11 +53,39 @@ export default async function BugDetailPage({
     .order("created_at", { ascending: true });
   const signed = await signScreenshots(supabase, screenshotRows ?? []);
 
-  const { data: reporter } = await supabase
-    .from("profiles")
-    .select("email")
-    .eq("id", bug.reporter_id)
-    .maybeSingle();
+  const { data: activityRows } = await supabase
+    .from("bug_activity")
+    .select("id, actor_id, action, changed_fields, created_at")
+    .eq("bug_id", bugId)
+    .order("created_at", { ascending: false });
+  const activity = activityRows ?? [];
+
+  // Resolve every referenced user's email in one query: reporter, last editor,
+  // and each activity actor.
+  const userIds = new Set<string>([bug.reporter_id]);
+  if (bug.updated_by) userIds.add(bug.updated_by);
+  for (const a of activity) if (a.actor_id) userIds.add(a.actor_id);
+
+  const emailById = new Map<string, string | null>();
+  if (userIds.size > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, email")
+      .in("id", [...userIds]);
+    for (const p of profiles ?? []) emailById.set(p.id, p.email);
+  }
+
+  const reporterEmail = emailById.get(bug.reporter_id) ?? null;
+  const updatedByEmail = bug.updated_by
+    ? (emailById.get(bug.updated_by) ?? null)
+    : null;
+  const activityEntries: ActivityEntry[] = activity.map((a) => ({
+    id: a.id,
+    action: a.action,
+    actorEmail: a.actor_id ? (emailById.get(a.actor_id) ?? null) : null,
+    changed_fields: a.changed_fields,
+    created_at: a.created_at,
+  }));
 
   const muted = <span className="italic text-brand-slate">Not specified</span>;
   const fieldBox =
@@ -211,7 +243,7 @@ export default async function BugDetailPage({
               )}
             </Field>
             <Field label="Reporter">
-              <span className="font-mono">{reporter?.email ?? "-"}</span>
+              <span className="font-mono">{reporterEmail ?? "-"}</span>
             </Field>
             <Field label="Browser">
               {bug.browser ? (
@@ -232,6 +264,11 @@ export default async function BugDetailPage({
               <span className="font-mono">
                 {format(new Date(bug.updated_at), "PPp")}
               </span>
+              {updatedByEmail ? (
+                <span className="block font-mono text-xs text-brand-slate">
+                  by {updatedByEmail}
+                </span>
+              ) : null}
             </Field>
           </dl>
         </CardContent>
@@ -250,6 +287,16 @@ export default async function BugDetailPage({
           ) : (
             <p className="text-sm italic text-brand-slate">No notes provided.</p>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Activity / history */}
+      <Card>
+        <CardHeader>
+          <p className="eyebrow">Activity</p>
+        </CardHeader>
+        <CardContent>
+          <BugActivityLog entries={activityEntries} />
         </CardContent>
       </Card>
     </div>

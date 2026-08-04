@@ -40,6 +40,24 @@ export default async function ProjectBugsPage({
   if (severity) query = query.eq("severity", severity);
   const { data: bugs } = await query.order("created_at", { ascending: false });
 
+  // Resolve the last editor's email for each bug (one batched query).
+  const bugList = bugs ?? [];
+  const editorIds = [
+    ...new Set(
+      bugList
+        .map((b) => b.updated_by)
+        .filter((id): id is string => id !== null),
+    ),
+  ];
+  const emailById = new Map<string, string | null>();
+  if (editorIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, email")
+      .in("id", editorIds);
+    for (const p of profiles ?? []) emailById.set(p.id, p.email);
+  }
+
   const newBugHref = `/projects/${projectId}/bugs/new`;
   const qs = severity ? `?severity=${severity}` : "";
   const count = bugs?.length ?? 0;
@@ -113,6 +131,9 @@ export default async function ProjectBugsPage({
                   {formatDistanceToNow(new Date(bug.updated_at), {
                     addSuffix: true,
                   })}
+                  {bug.updated_by && emailById.get(bug.updated_by) ? (
+                    <> by {emailById.get(bug.updated_by)}</>
+                  ) : null}
                 </p>
               </div>
               <SeverityBadge severity={bug.severity} />
