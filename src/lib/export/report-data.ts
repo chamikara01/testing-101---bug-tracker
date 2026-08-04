@@ -219,6 +219,7 @@ export async function buildProjectReport(
     .from("bugs")
     .select("*")
     .eq("project_id", projectId)
+    .is("deleted_at", null)
     .order("created_at", { ascending: true });
   if (opts.severity) query = query.eq("severity", opts.severity);
   const { data: bugRows } = await query;

@@ -35,6 +35,7 @@ export default async function DashboardPage() {
       supabase
         .from("bugs")
         .select("id,title,severity,project_id,updated_at")
+        .is("deleted_at", null)
         .order("updated_at", { ascending: false }),
       supabase.from("projects").select("id,name"),
       supabase.rpc("my_invitations"),

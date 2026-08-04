@@ -18,7 +18,10 @@ export default async function ProjectsPage() {
 
   const projects: Project[] = projectsData ?? [];
 
-  const { data: bugsData } = await supabase.from("bugs").select("project_id");
+  const { data: bugsData } = await supabase
+    .from("bugs")
+    .select("project_id")
+    .is("deleted_at", null);
   const { data: invitesData } = await supabase.rpc("my_invitations");
   const invitations = invitesData ?? [];
 

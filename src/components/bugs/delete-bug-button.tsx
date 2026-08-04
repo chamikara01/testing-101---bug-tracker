@@ -5,16 +5,13 @@ import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { SCREENSHOT_BUCKET } from "@/lib/types";
 
 export function DeleteBugButton({
   projectId,
   bugId,
-  screenshotPaths,
 }: {
   projectId: string;
   bugId: string;
-  screenshotPaths: string[];
 }) {
   const router = useRouter();
   const [pending, setPending] = React.useState(false);
@@ -24,7 +21,7 @@ export function DeleteBugButton({
     if (pending) return;
     if (
       !window.confirm(
-        "Delete this bug permanently? Its screenshots and report data will be removed. This cannot be undone.",
+        "Move this bug to the recycle bin? You can restore it (or delete it for good) from the project's recycle bin.",
       )
     ) {
       return;
@@ -32,28 +29,16 @@ export function DeleteBugButton({
     setPending(true);
     setError(null);
 
+    // Soft delete: keep the row and its screenshots, just mark it deleted. The
+    // recycle bin restores (deleted_at = null) or permanently deletes it.
     const supabase = createClient();
-
-    // Remove screenshot files first. Storage access is granted via the bug's
-    // project membership, so once the bug row (and its cascade) is gone the
-    // objects can no longer be deleted - clean them while the bug still exists.
-    if (screenshotPaths.length > 0) {
-      const { error: storageError } = await supabase.storage
-        .from(SCREENSHOT_BUCKET)
-        .remove(screenshotPaths);
-      if (storageError) {
-        setError(storageError.message);
-        setPending(false);
-        return;
-      }
-    }
-
-    const { error: deleteError } = await supabase
+    const { error: updateError } = await supabase
       .from("bugs")
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq("id", bugId);
-    if (deleteError) {
-      setError(deleteError.message);
+
+    if (updateError) {
+      setError(updateError.message);
       setPending(false);
       return;
     }

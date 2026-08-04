@@ -23,6 +23,13 @@ export default async function ProjectLayout({
 
   if (!project) notFound();
 
+  // Count of bugs currently in the recycle bin, for the tab badge.
+  const { count: trashCount } = await supabase
+    .from("bugs")
+    .select("id", { count: "exact", head: true })
+    .eq("project_id", projectId)
+    .not("deleted_at", "is", null);
+
   return (
     <div className="space-y-6">
       <div>
@@ -42,7 +49,7 @@ export default async function ProjectLayout({
           </p>
         ) : null}
       </div>
-      <ProjectTabs projectId={projectId} />
+      <ProjectTabs projectId={projectId} trashCount={trashCount ?? 0} />
       <div>{children}</div>
     </div>
   );

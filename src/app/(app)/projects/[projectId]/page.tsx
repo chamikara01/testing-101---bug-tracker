@@ -32,7 +32,11 @@ export default async function ProjectBugsPage({
 
   const supabase = await createClient();
 
-  let query = supabase.from("bugs").select("*").eq("project_id", projectId);
+  let query = supabase
+    .from("bugs")
+    .select("*")
+    .eq("project_id", projectId)
+    .is("deleted_at", null);
   if (severity) query = query.eq("severity", severity);
   const { data: bugs } = await query.order("created_at", { ascending: false });
 

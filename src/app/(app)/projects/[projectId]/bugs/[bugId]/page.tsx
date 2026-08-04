@@ -47,9 +47,7 @@ export default async function BugDetailPage({
     .select("*")
     .eq("bug_id", bugId)
     .order("created_at", { ascending: true });
-  const screenshotRowList = screenshotRows ?? [];
-  const signed = await signScreenshots(supabase, screenshotRowList);
-  const screenshotPaths = screenshotRowList.map((s) => s.storage_path);
+  const signed = await signScreenshots(supabase, screenshotRows ?? []);
 
   const { data: reporter } = await supabase
     .from("profiles")
@@ -92,11 +90,7 @@ export default async function BugDetailPage({
             pdfHref={`/api/bugs/${bug.id}/export/pdf`}
             context="bug report"
           />
-          <DeleteBugButton
-            projectId={projectId}
-            bugId={bug.id}
-            screenshotPaths={screenshotPaths}
-          />
+          <DeleteBugButton projectId={projectId} bugId={bug.id} />
         </div>
       </div>
 
