@@ -11,10 +11,15 @@ export type Portal = Database["public"]["Tables"]["project_portals"]["Row"];
 export type Section = Database["public"]["Tables"]["project_sections"]["Row"];
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
-/** Minimal portal/section shape used by the bug form and list filters. */
+/** Minimal portal shape used by the bug form and list filters. */
 export interface StructureOption {
   id: string;
   name: string;
+}
+
+/** A section always belongs to exactly one portal. */
+export interface SectionOption extends StructureOption {
+  portal_id: string;
 }
 
 export type BugInsert = Database["public"]["Tables"]["bugs"]["Insert"];

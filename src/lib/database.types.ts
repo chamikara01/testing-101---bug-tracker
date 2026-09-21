@@ -147,6 +147,7 @@ export interface Database {
         Row: {
           id: string;
           project_id: string;
+          portal_id: string;
           name: string;
           position: number;
           created_at: string;
@@ -154,6 +155,7 @@ export interface Database {
         Insert: {
           id?: string;
           project_id: string;
+          portal_id: string;
           name: string;
           position?: number;
           created_at?: string;
@@ -161,6 +163,7 @@ export interface Database {
         Update: {
           id?: string;
           project_id?: string;
+          portal_id?: string;
           name?: string;
           position?: number;
           created_at?: string;

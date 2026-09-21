@@ -202,7 +202,10 @@ export async function buildSingleBugReport(
       {
         bug,
         reporterEmail: reporter?.email ?? null,
-        portalName: nameOf(structure.portals, bug.portal_id),
+        portalName:
+          structure.portals.length > 1
+            ? nameOf(structure.portals, bug.portal_id)
+            : null,
         sectionName: nameOf(structure.sections, bug.section_id),
         screenshots: screenshotsByBug.get(bug.id) ?? [],
       },
@@ -243,13 +246,24 @@ export async function buildProjectReport(
   const { data: bugRows } = await query;
   const bugs = bugRows ?? [];
 
-  // Report order follows the project's own section order, with unassigned bugs
-  // last. Sort is stable, so bugs keep their created_at order within a section.
+  // Report order follows the project's own portal, then section order, with
+  // unassigned bugs last. Sort is stable, so bugs keep their created_at order
+  // within a section.
   const structure = await fetchProjectStructure(supabase, projectId);
+  const portalRank = new Map(structure.portals.map((p, i) => [p.id, i]));
   const sectionRank = new Map(structure.sections.map((s, i) => [s.id, i]));
-  const rankOf = (bug: Bug) =>
-    bug.section_id ? (sectionRank.get(bug.section_id) ?? Infinity) : Infinity;
-  bugs.sort((a, b) => rankOf(a) - rankOf(b));
+  const rankOf = (bug: Bug, ranks: Map<string, number>, id: string | null) =>
+    id ? (ranks.get(id) ?? Infinity) : Infinity;
+  bugs.sort(
+    (a, b) =>
+      rankOf(a, portalRank, a.portal_id) - rankOf(b, portalRank, b.portal_id) ||
+      rankOf(a, sectionRank, a.section_id) -
+        rankOf(b, sectionRank, b.section_id),
+  );
+
+  // A project with one portal does not use portals; naming it in the report
+  // would only add noise.
+  const showPortal = structure.portals.length > 1;
 
   const reporterIds = [...new Set(bugs.map((b) => b.reporter_id))];
   const emailById = new Map<string, string | null>();
@@ -273,7 +287,7 @@ export async function buildProjectReport(
   const reportBugs: ReportBug[] = bugs.map((bug) => ({
     bug,
     reporterEmail: emailById.get(bug.reporter_id) ?? null,
-    portalName: nameOf(structure.portals, bug.portal_id),
+    portalName: showPortal ? nameOf(structure.portals, bug.portal_id) : null,
     sectionName: nameOf(structure.sections, bug.section_id),
     screenshots: screenshotsByBug.get(bug.id) ?? [],
   }));

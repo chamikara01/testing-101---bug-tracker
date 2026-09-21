@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   SEVERITIES,
   SEVERITY_LABELS,
+  type SectionOption,
   type StructureOption,
 } from "@/lib/types";
 
@@ -17,7 +18,7 @@ export function BugFilters({
   sections = [],
   portals = [],
 }: {
-  sections?: StructureOption[];
+  sections?: SectionOption[];
   portals?: StructureOption[];
 }) {
   const router = useRouter();
@@ -32,6 +33,9 @@ export function BugFilters({
       } else {
         params.delete(key);
       }
+      // A section only exists inside one portal, so changing the portal makes
+      // any chosen section meaningless.
+      if (key === "portal") params.delete("section");
       const query = params.toString();
       router.replace(query ? `${pathname}?${query}` : pathname);
     },
@@ -49,6 +53,11 @@ export function BugFilters({
   const section = searchParams.get("section") ?? "";
   const portal = searchParams.get("portal") ?? "";
   const anyActive = severity !== "" || section !== "" || portal !== "";
+  const multiPortal = portals.length > 1;
+  const visibleSections = portal
+    ? sections.filter((s) => s.portal_id === portal)
+    : sections;
+  const groupByPortal = multiPortal && portal === "";
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -67,24 +76,7 @@ export function BugFilters({
         </Select>
       </div>
 
-      {sections.length > 0 ? (
-        <div className="w-48">
-          <Select
-            aria-label="Filter by section"
-            value={section}
-            onChange={(e) => setFilter("section", e.target.value)}
-          >
-            <option value="">All sections</option>
-            {sections.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-      ) : null}
-
-      {portals.length > 0 ? (
+      {multiPortal ? (
         <div className="w-48">
           <Select
             aria-label="Filter by portal"
@@ -97,6 +89,39 @@ export function BugFilters({
                 {p.name}
               </option>
             ))}
+          </Select>
+        </div>
+      ) : null}
+
+      {sections.length > 0 ? (
+        <div className="w-48">
+          <Select
+            aria-label="Filter by section"
+            value={section}
+            onChange={(e) => setFilter("section", e.target.value)}
+          >
+            <option value="">All sections</option>
+            {/* Across portals, section names repeat, so group them so "Settings"
+                is not ambiguous. */}
+            {groupByPortal
+              ? portals.map((p) => {
+                  const owned = sections.filter((s) => s.portal_id === p.id);
+                  if (owned.length === 0) return null;
+                  return (
+                    <optgroup key={p.id} label={p.name}>
+                      {owned.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })
+              : visibleSections.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
           </Select>
         </div>
       ) : null}

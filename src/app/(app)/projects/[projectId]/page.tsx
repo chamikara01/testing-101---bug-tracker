@@ -2,7 +2,11 @@ import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { fetchProjectStructure, formatLocation } from "@/lib/structure";
+import {
+  fetchProjectStructure,
+  formatLocation,
+  usesPortals,
+} from "@/lib/structure";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Card } from "@/components/ui/card";
@@ -20,7 +24,7 @@ function asOption<T extends string>(
     : undefined;
 }
 
-/** Only accept an id that actually belongs to this project — a stale or
+/** Only accept an id that actually belongs to this project - a stale or
  *  hand-edited query string must not reach Postgres as a bogus uuid. */
 function asStructureId(
   value: string | undefined,
@@ -75,6 +79,8 @@ export default async function ProjectBugsPage({
 
   const sectionNameById = new Map(sections.map((s) => [s.id, s.name]));
   const portalNameById = new Map(portals.map((p) => [p.id, p.name]));
+  // The implicit single portal is not worth a word in the list.
+  const multiPortal = usesPortals(portals);
 
   const newBugHref = `/projects/${projectId}/bugs/new`;
   const exportParams = new URLSearchParams();
@@ -136,7 +142,9 @@ export default async function ProjectBugsPage({
         <Card className="divide-y divide-line overflow-hidden p-0">
           {bugs.map((bug) => {
             const location = formatLocation(
-              bug.portal_id ? (portalNameById.get(bug.portal_id) ?? null) : null,
+              multiPortal && bug.portal_id
+                ? (portalNameById.get(bug.portal_id) ?? null)
+                : null,
               bug.section_id ? (sectionNameById.get(bug.section_id) ?? null) : null,
             );
             return (

@@ -31,6 +31,7 @@ import {
   type Bug,
   type BugScreenshot,
   type Severity,
+  type SectionOption,
   type StructureOption,
 } from "@/lib/types";
 
@@ -53,9 +54,10 @@ interface BugFormProps {
   mode: "create" | "edit";
   bug?: Bug;
   screenshots?: Signed[];
-  /** Project sections, in display order. Empty = the picker is not rendered. */
-  sections?: StructureOption[];
-  /** Project portals, in display order. Most projects have none. */
+  /** Sections across the project's portals, in display order. */
+  sections?: SectionOption[];
+  /** Portals of the project, in display order. One = the project does not use
+   *  portals and the picker stays hidden. */
   portals?: StructureOption[];
 }
 
@@ -92,8 +94,23 @@ export function BugForm({
   const [actual, setActual] = useState(bug?.actual_result ?? "");
   const [url, setUrl] = useState(bug?.url ?? "");
   const [severity, setSeverity] = useState<Severity>(bug?.severity ?? "major");
+  // With a single portal there is nothing to choose: it is implied, so the bug
+  // still records it and the picker never appears.
+  const [portalId, setPortalId] = useState(
+    bug?.portal_id ?? (portals.length === 1 ? portals[0].id : ""),
+  );
   const [sectionId, setSectionId] = useState(bug?.section_id ?? "");
-  const [portalId, setPortalId] = useState(bug?.portal_id ?? "");
+
+  const showPortalPicker = portals.length > 1;
+  const portalSections = portalId
+    ? sections.filter((section) => section.portal_id === portalId)
+    : [];
+
+  // Sections belong to one portal, so switching portal invalidates the choice.
+  const changePortal = (value: string) => {
+    setPortalId(value);
+    setSectionId("");
+  };
   const [browser, setBrowser] = useState(bug?.browser ?? "");
   const [os, setOs] = useState(bug?.os ?? "");
   const [notes, setNotes] = useState(bug?.notes ?? "");
@@ -449,35 +466,40 @@ export function BugForm({
       {/* Classification & environment */}
       <Card>
         <CardContent className="grid gap-4 sm:grid-cols-2">
+          {showPortalPicker ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="portal">Portal</Label>
+              <Select
+                id="portal"
+                value={portalId}
+                onChange={(e) => changePortal(e.target.value)}
+              >
+                <option value="">Unspecified</option>
+                {portals.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : null}
           {sections.length > 0 ? (
             <div className="space-y-1.5">
               <Label htmlFor="section">Section</Label>
               <Select
                 id="section"
                 value={sectionId}
+                disabled={showPortalPicker && !portalId}
                 onChange={(e) => setSectionId(e.target.value)}
               >
-                <option value="">Unspecified</option>
-                {sections.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          ) : null}
-          {portals.length > 0 ? (
-            <div className="space-y-1.5">
-              <Label htmlFor="portal">Portal</Label>
-              <Select
-                id="portal"
-                value={portalId}
-                onChange={(e) => setPortalId(e.target.value)}
-              >
-                <option value="">Unspecified</option>
-                {portals.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
+                <option value="">
+                  {showPortalPicker && !portalId
+                    ? "Choose a portal first"
+                    : "Unspecified"}
+                </option>
+                {portalSections.map((section) => (
+                  <option key={section.id} value={section.id}>
+                    {section.name}
                   </option>
                 ))}
               </Select>

@@ -236,11 +236,11 @@ export default async function BugDetailPage({
         </CardHeader>
         <CardContent>
           <dl className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+            {portals.length > 1 ? (
+              <Field label="Portal">{portalName ?? muted}</Field>
+            ) : null}
             {sections.length > 0 ? (
               <Field label="Section">{sectionName ?? muted}</Field>
-            ) : null}
-            {portals.length > 0 ? (
-              <Field label="Portal">{portalName ?? muted}</Field>
             ) : null}
             <Field label="URL">
               {bug.url ? (

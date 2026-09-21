@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-/** Both portals and sections are flat, ordered, project-scoped name lists, so
- *  one component drives either table. */
+/** Portals and the sections inside one portal are both flat, ordered name
+ *  lists, so one component drives either table. Sections additionally need the
+ *  portal they belong to, hence the discriminated props. */
 export type StructureTable = "project_portals" | "project_sections";
 
 export interface StructureItem {
@@ -18,9 +19,8 @@ export interface StructureItem {
   position: number;
 }
 
-interface StructureListProps {
+interface BaseProps {
   projectId: string;
-  table: StructureTable;
   items: StructureItem[];
   canEdit: boolean;
   title: string;
@@ -29,24 +29,31 @@ interface StructureListProps {
   emptyText: string;
   /** What happens to bugs pointing here when an entry is removed. */
   deleteWarning: string;
+  /** False while the list must keep its last entry (a project needs a portal). */
+  allowDelete?: boolean;
 }
+
+type StructureListProps = BaseProps &
+  ({ table: "project_portals" } | { table: "project_sections"; portalId: string });
 
 function friendly(message: string, code?: string): string {
   if (code === "23505") return "That name is already used in this project.";
   return message;
 }
 
-export function StructureList({
-  projectId,
-  table,
-  items,
-  canEdit,
-  title,
-  description,
-  addLabel,
-  emptyText,
-  deleteWarning,
-}: StructureListProps) {
+export function StructureList(props: StructureListProps) {
+  const {
+    projectId,
+    table,
+    items,
+    canEdit,
+    title,
+    description,
+    addLabel,
+    emptyText,
+    deleteWarning,
+    allowDelete = true,
+  } = props;
   const router = useRouter();
   const [draft, setDraft] = React.useState("");
   const [editingId, setEditingId] = React.useState<string | null>(null);
@@ -65,9 +72,19 @@ export function StructureList({
       items.reduce((max, item) => Math.max(max, item.position), -1) + 1;
 
     const supabase = createClient();
-    const { error: insertError } = await supabase
-      .from(table)
-      .insert({ project_id: projectId, name, position: nextPosition });
+    const { error: insertError } =
+      props.table === "project_sections"
+        ? await supabase.from("project_sections").insert({
+            project_id: projectId,
+            portal_id: props.portalId,
+            name,
+            position: nextPosition,
+          })
+        : await supabase.from("project_portals").insert({
+            project_id: projectId,
+            name,
+            position: nextPosition,
+          });
 
     setBusy(false);
     if (insertError) {
@@ -235,7 +252,12 @@ export function StructureList({
                           variant="ghost"
                           size="icon"
                           aria-label={`Delete ${item.name}`}
-                          disabled={busy}
+                          disabled={busy || !allowDelete}
+                          title={
+                            allowDelete
+                              ? undefined
+                              : "A project must keep at least one portal"
+                          }
                           onClick={() => remove(item)}
                         >
                           <Trash2 className="h-4 w-4" />
