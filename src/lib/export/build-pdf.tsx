@@ -73,6 +73,8 @@ function sanitizeReportData(data: ReportData): ReportData {
     bugs: data.bugs.map((rb) => ({
       ...rb,
       reporterEmail: opt(rb.reporterEmail),
+      portalName: opt(rb.portalName),
+      sectionName: opt(rb.sectionName),
       bug: {
         ...rb.bug,
         title: s(rb.bug.title),
@@ -207,6 +209,8 @@ function BugBlock({ rb, index }: { rb: ReportBug; index: number }) {
   const { bug } = rb;
   const sev = SEVERITY_DOC[bug.severity];
   const env = [bug.browser && `Browser: ${bug.browser}`, bug.os && `OS: ${bug.os}`].filter(Boolean).join("   ·   ");
+  // Portal · Section. Omitted entirely for projects that use neither.
+  const location = [rb.portalName, rb.sectionName].filter(Boolean).join("   ·   ");
 
   return (
     <View style={styles.bugBox}>
@@ -224,6 +228,12 @@ function BugBlock({ rb, index }: { rb: ReportBug; index: number }) {
           <Text style={styles.severityText}>{SEVERITY_LABELS[bug.severity].toUpperCase()}</Text>
         </View>
       </Row>
+
+      {location ? (
+        <Row label="Location">
+          <Text>{location}</Text>
+        </Row>
+      ) : null}
 
       <Row label="Description" breakable>
         <Text style={bug.description ? {} : styles.muted}>{bug.description ?? "N/A"}</Text>

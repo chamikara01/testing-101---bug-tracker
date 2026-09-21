@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { ChevronLeft, Pencil, ExternalLink } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { signScreenshots } from "@/lib/screenshots";
+import { fetchProjectStructure } from "@/lib/structure";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -45,6 +46,14 @@ export default async function BugDetailPage({
     .eq("id", bugId)
     .maybeSingle();
   if (!bug) notFound();
+
+  const { sections, portals } = await fetchProjectStructure(supabase, projectId);
+  const sectionName = bug.section_id
+    ? (sections.find((s) => s.id === bug.section_id)?.name ?? null)
+    : null;
+  const portalName = bug.portal_id
+    ? (portals.find((p) => p.id === bug.portal_id)?.name ?? null)
+    : null;
 
   const { data: screenshotRows } = await supabase
     .from("bug_screenshots")
@@ -227,6 +236,12 @@ export default async function BugDetailPage({
         </CardHeader>
         <CardContent>
           <dl className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+            {sections.length > 0 ? (
+              <Field label="Section">{sectionName ?? muted}</Field>
+            ) : null}
+            {portals.length > 0 ? (
+              <Field label="Portal">{portalName ?? muted}</Field>
+            ) : null}
             <Field label="URL">
               {bug.url ? (
                 <a

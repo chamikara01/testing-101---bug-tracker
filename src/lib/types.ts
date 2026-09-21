@@ -7,7 +7,15 @@ export type ProjectMember = Database["public"]["Tables"]["project_members"]["Row
 export type Bug = Database["public"]["Tables"]["bugs"]["Row"];
 export type BugScreenshot = Database["public"]["Tables"]["bug_screenshots"]["Row"];
 export type ProjectInvite = Database["public"]["Tables"]["project_invites"]["Row"];
+export type Portal = Database["public"]["Tables"]["project_portals"]["Row"];
+export type Section = Database["public"]["Tables"]["project_sections"]["Row"];
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+
+/** Minimal portal/section shape used by the bug form and list filters. */
+export interface StructureOption {
+  id: string;
+  name: string;
+}
 
 export type BugInsert = Database["public"]["Tables"]["bugs"]["Insert"];
 export type BugUpdate = Database["public"]["Tables"]["bugs"]["Update"];

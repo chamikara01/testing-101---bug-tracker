@@ -1,5 +1,5 @@
-// Hand-authored types matching supabase/migrations/0001_init.sql.
-// Keep in sync with the migration. Used to type the Supabase clients so
+// Hand-authored types matching the migrations in supabase/migrations/.
+// Keep in sync with them. Used to type the Supabase clients so
 // queries and results are fully typed (no `any`).
 
 export type Severity = "critical" | "major" | "minor" | "trivial";
@@ -57,6 +57,8 @@ export interface Database {
         Row: {
           id: string;
           project_id: string;
+          portal_id: string | null;
+          section_id: string | null;
           title: string;
           steps_to_reproduce: string[];
           expected_result: string | null;
@@ -76,6 +78,8 @@ export interface Database {
         Insert: {
           id?: string;
           project_id: string;
+          portal_id?: string | null;
+          section_id?: string | null;
           title: string;
           steps_to_reproduce?: string[];
           expected_result?: string | null;
@@ -95,6 +99,8 @@ export interface Database {
         Update: {
           id?: string;
           project_id?: string;
+          portal_id?: string | null;
+          section_id?: string | null;
           title?: string;
           steps_to_reproduce?: string[];
           expected_result?: string | null;
@@ -110,6 +116,54 @@ export interface Database {
           updated_at?: string;
           deleted_at?: string | null;
           updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      project_portals: {
+        Row: {
+          id: string;
+          project_id: string;
+          name: string;
+          position: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          name: string;
+          position?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          name?: string;
+          position?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      project_sections: {
+        Row: {
+          id: string;
+          project_id: string;
+          name: string;
+          position: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          name: string;
+          position?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          name?: string;
+          position?: number;
+          created_at?: string;
         };
         Relationships: [];
       };

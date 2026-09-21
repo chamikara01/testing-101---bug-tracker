@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { signScreenshots } from "@/lib/screenshots";
+import { fetchProjectStructure } from "@/lib/structure";
 import { BugForm } from "@/components/bugs/bug-form";
 
 export default async function EditBugPage({
@@ -26,6 +27,7 @@ export default async function EditBugPage({
     .order("created_at", { ascending: true });
 
   const signed = await signScreenshots(supabase, screenshots ?? []);
+  const { sections, portals } = await fetchProjectStructure(supabase, projectId);
 
   return (
     <div className="space-y-5">
@@ -35,6 +37,8 @@ export default async function EditBugPage({
         mode="edit"
         bug={bug}
         screenshots={signed}
+        sections={sections}
+        portals={portals}
       />
     </div>
   );

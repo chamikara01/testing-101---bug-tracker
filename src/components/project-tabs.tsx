@@ -15,9 +15,21 @@ export function ProjectTabs({
   const base = `/projects/${projectId}`;
   const onMembers = pathname.startsWith(`${base}/members`);
   const onTrash = pathname.startsWith(`${base}/trash`);
+  const onStructure = pathname.startsWith(`${base}/structure`);
 
   const tabs = [
-    { href: base, label: "Bugs", active: !onMembers && !onTrash, count: 0 },
+    {
+      href: base,
+      label: "Bugs",
+      active: !onMembers && !onTrash && !onStructure,
+      count: 0,
+    },
+    {
+      href: `${base}/structure`,
+      label: "Structure",
+      active: onStructure,
+      count: 0,
+    },
     { href: `${base}/members`, label: "Members", active: onMembers, count: 0 },
     {
       href: `${base}/trash`,

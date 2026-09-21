@@ -2,6 +2,7 @@ import sharp from "sharp";
 import { format } from "date-fns";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { fetchProjectStructure } from "@/lib/structure";
 import { SCREENSHOT_BUCKET } from "@/lib/types";
 import type { Bug, Severity } from "@/lib/types";
 import type { Database } from "@/lib/database.types";
@@ -21,6 +22,9 @@ export interface ExportScreenshot {
 export interface ReportBug {
   bug: Bug;
   reporterEmail: string | null;
+  /** Resolved names for bug.portal_id / bug.section_id; null when unset. */
+  portalName: string | null;
+  sectionName: string | null;
   screenshots: ExportScreenshot[];
 }
 
@@ -148,6 +152,15 @@ async function fetchScreenshotsByBug(
   return byBug;
 }
 
+/** Look up a portal/section name by id within one project's structure. */
+function nameOf(
+  items: { id: string; name: string }[],
+  id: string | null,
+): string | null {
+  if (!id) return null;
+  return items.find((item) => item.id === id)?.name ?? null;
+}
+
 function today(): string {
   return format(new Date(), "d MMMM yyyy");
 }
@@ -172,11 +185,12 @@ export async function buildSingleBugReport(
     .maybeSingle();
   if (!bug) return null;
 
-  const [{ data: project }, { data: reporter }, screenshotsByBug] =
+  const [{ data: project }, { data: reporter }, screenshotsByBug, structure] =
     await Promise.all([
       supabase.from("projects").select("name").eq("id", bug.project_id).maybeSingle(),
       supabase.from("profiles").select("email").eq("id", bug.reporter_id).maybeSingle(),
       fetchScreenshotsByBug(supabase, [bug.id]),
+      fetchProjectStructure(supabase, bug.project_id),
     ]);
 
   const projectName = project?.name ?? "Untitled project";
@@ -188,6 +202,8 @@ export async function buildSingleBugReport(
       {
         bug,
         reporterEmail: reporter?.email ?? null,
+        portalName: nameOf(structure.portals, bug.portal_id),
+        sectionName: nameOf(structure.sections, bug.section_id),
         screenshots: screenshotsByBug.get(bug.id) ?? [],
       },
     ],
@@ -200,7 +216,7 @@ export async function buildSingleBugReport(
  */
 export async function buildProjectReport(
   projectId: string,
-  opts: { severity?: Severity } = {},
+  opts: { severity?: Severity; sectionId?: string; portalId?: string } = {},
 ): Promise<ReportData | null> {
   const supabase = await createClient();
   const {
@@ -222,8 +238,18 @@ export async function buildProjectReport(
     .is("deleted_at", null)
     .order("created_at", { ascending: true });
   if (opts.severity) query = query.eq("severity", opts.severity);
+  if (opts.sectionId) query = query.eq("section_id", opts.sectionId);
+  if (opts.portalId) query = query.eq("portal_id", opts.portalId);
   const { data: bugRows } = await query;
   const bugs = bugRows ?? [];
+
+  // Report order follows the project's own section order, with unassigned bugs
+  // last. Sort is stable, so bugs keep their created_at order within a section.
+  const structure = await fetchProjectStructure(supabase, projectId);
+  const sectionRank = new Map(structure.sections.map((s, i) => [s.id, i]));
+  const rankOf = (bug: Bug) =>
+    bug.section_id ? (sectionRank.get(bug.section_id) ?? Infinity) : Infinity;
+  bugs.sort((a, b) => rankOf(a) - rankOf(b));
 
   const reporterIds = [...new Set(bugs.map((b) => b.reporter_id))];
   const emailById = new Map<string, string | null>();
@@ -247,12 +273,19 @@ export async function buildProjectReport(
   const reportBugs: ReportBug[] = bugs.map((bug) => ({
     bug,
     reporterEmail: emailById.get(bug.reporter_id) ?? null,
+    portalName: nameOf(structure.portals, bug.portal_id),
+    sectionName: nameOf(structure.sections, bug.section_id),
     screenshots: screenshotsByBug.get(bug.id) ?? [],
   }));
 
   const projectName = project.name ?? "Untitled project";
   const n = reportBugs.length;
-  const scope = opts.severity ? ` (${opts.severity} severity)` : "";
+  const scopeParts = [
+    opts.severity && `${opts.severity} severity`,
+    opts.sectionId && `section ${nameOf(structure.sections, opts.sectionId) ?? "?"}`,
+    opts.portalId && `portal ${nameOf(structure.portals, opts.portalId) ?? "?"}`,
+  ].filter(Boolean);
+  const scope = scopeParts.length > 0 ? ` (${scopeParts.join(", ")})` : "";
 
   return {
     title: `${projectName} - Bug Report`,

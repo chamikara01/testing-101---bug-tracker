@@ -31,6 +31,7 @@ import {
   type Bug,
   type BugScreenshot,
   type Severity,
+  type StructureOption,
 } from "@/lib/types";
 
 type Signed = BugScreenshot & { url: string | null };
@@ -52,6 +53,10 @@ interface BugFormProps {
   mode: "create" | "edit";
   bug?: Bug;
   screenshots?: Signed[];
+  /** Project sections, in display order. Empty = the picker is not rendered. */
+  sections?: StructureOption[];
+  /** Project portals, in display order. Most projects have none. */
+  portals?: StructureOption[];
 }
 
 function sanitize(name: string): string {
@@ -63,7 +68,14 @@ function nullify(value: string): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
-export function BugForm({ projectId, mode, bug, screenshots }: BugFormProps) {
+export function BugForm({
+  projectId,
+  mode,
+  bug,
+  screenshots,
+  sections = [],
+  portals = [],
+}: BugFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -80,6 +92,8 @@ export function BugForm({ projectId, mode, bug, screenshots }: BugFormProps) {
   const [actual, setActual] = useState(bug?.actual_result ?? "");
   const [url, setUrl] = useState(bug?.url ?? "");
   const [severity, setSeverity] = useState<Severity>(bug?.severity ?? "major");
+  const [sectionId, setSectionId] = useState(bug?.section_id ?? "");
+  const [portalId, setPortalId] = useState(bug?.portal_id ?? "");
   const [browser, setBrowser] = useState(bug?.browser ?? "");
   const [os, setOs] = useState(bug?.os ?? "");
   const [notes, setNotes] = useState(bug?.notes ?? "");
@@ -212,6 +226,8 @@ export function BugForm({ projectId, mode, bug, screenshots }: BugFormProps) {
         actual_result: nullify(actual),
         url: nullify(url),
         severity,
+        section_id: sectionId || null,
+        portal_id: portalId || null,
         browser: nullify(browser),
         os: nullify(os),
         notes: nullify(notes),
@@ -433,6 +449,40 @@ export function BugForm({ projectId, mode, bug, screenshots }: BugFormProps) {
       {/* Classification & environment */}
       <Card>
         <CardContent className="grid gap-4 sm:grid-cols-2">
+          {sections.length > 0 ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="section">Section</Label>
+              <Select
+                id="section"
+                value={sectionId}
+                onChange={(e) => setSectionId(e.target.value)}
+              >
+                <option value="">Unspecified</option>
+                {sections.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : null}
+          {portals.length > 0 ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="portal">Portal</Label>
+              <Select
+                id="portal"
+                value={portalId}
+                onChange={(e) => setPortalId(e.target.value)}
+              >
+                <option value="">Unspecified</option>
+                {portals.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : null}
           <div className="space-y-1.5">
             <Label htmlFor="severity">Severity</Label>
             <Select

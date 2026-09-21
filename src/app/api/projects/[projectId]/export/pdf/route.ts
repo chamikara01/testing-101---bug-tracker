@@ -1,6 +1,11 @@
 import { buildProjectReport } from "@/lib/export/report-data";
 import { buildReportPdf } from "@/lib/export/build-pdf";
-import { PDF_MIME, fileResponse, slugify } from "@/lib/export/http";
+import {
+  PDF_MIME,
+  fileResponse,
+  parseUuid,
+  slugify,
+} from "@/lib/export/http";
 import { SEVERITIES, type Severity } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -18,10 +23,17 @@ export async function GET(
   { params }: { params: Promise<{ projectId: string }> },
 ) {
   const { projectId } = await params;
-  const severity = parseSeverity(new URL(req.url).searchParams.get("severity"));
+  const search = new URL(req.url).searchParams;
+  const severity = parseSeverity(search.get("severity"));
+  const sectionId = parseUuid(search.get("section"));
+  const portalId = parseUuid(search.get("portal"));
 
   try {
-    const data = await buildProjectReport(projectId, { severity });
+    const data = await buildProjectReport(projectId, {
+      severity,
+      sectionId,
+      portalId,
+    });
     if (!data) return new Response("Not found", { status: 404 });
 
     const buffer = await buildReportPdf(data);

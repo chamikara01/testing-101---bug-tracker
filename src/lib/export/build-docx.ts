@@ -195,9 +195,13 @@ function bugTable(rb: ReportBug, index: number): Table {
   const env = [bug.browser && `Browser: ${bug.browser}`, bug.os && `OS: ${bug.os}`]
     .filter(Boolean)
     .join("  ·  ");
+  // Portal · Section. Omitted entirely for projects that use neither, so the
+  // table gains no empty row.
+  const location = [rb.portalName, rb.sectionName].filter(Boolean).join("  ·  ");
   const rows: TableRow[] = [
     headerRow(`BUG-${String(index + 1).padStart(2, "0")} - ${bug.title}`, rb.reporterEmail),
     severityRow(bug.severity),
+    ...(location ? [dataRow("Location", [textPara(location)])] : []),
     dataRow("Description", [textPara(bug.description ?? "N/A", !bug.description)]),
     dataRow("Steps to Reproduce", stepParas(bug.steps_to_reproduce)),
     dataRow("Expected Result", [textPara(bug.expected_result ?? "N/A", !bug.expected_result)]),
